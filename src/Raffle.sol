@@ -15,22 +15,18 @@ import {VRFConsumerBaseV2Plus} from "lib/chainlink/contracts/src/v0.8/vrf/dev/VR
  * @notice This contract is for creating a sample raffle contract
  * @dev This implements the Chainlink VRF Version 2
  */
-
 contract Raffle is VRFConsumerBaseV2Plus {
     /*Errors*/
     error Raffle__SendMoreToEnterRaffle();
     error Raffle__TransferFailed();
     error Raffle__RaffleNotOpen();
-    error Raffle__UpkeepNotNeeded(
-        uint256 balance,
-        uint256 playersLength,
-        uint256 raffleState
-    );
+    error Raffle__UpkeepNotNeeded(uint256 balance, uint256 playersLength, uint256 raffleState);
 
     /*Type declarations*/
     enum RaffleState {
         OPEN, //0
         CALCULATING //1
+
     }
 
     /*State Variables*/
@@ -98,9 +94,11 @@ contract Raffle is VRFConsumerBaseV2Plus {
      * @return upkeepNeeded - true if its time to restart the lottery
      * @return - ignored
      */
-    function checkUpkeep(
-        bytes memory /*checkData*/
-    ) public view returns (bool upkeepNeeded, bytes memory /*performData*/) {
+    function checkUpkeep(bytes memory /*checkData*/ )
+        public
+        view
+        returns (bool upkeepNeeded, bytes memory /*performData*/ )
+    {
         bool timeHasPassed = (block.timestamp - s_lastTimeStamp) >= i_interval;
         bool isOpen = s_raffleState == RaffleState.OPEN;
         bool hasBalance = address(this).balance > 0;
@@ -113,36 +111,31 @@ contract Raffle is VRFConsumerBaseV2Plus {
     //1.Get a random number
     //2.Use a random number to pick a player
     //3.automatically called
-    function performUpkeep(bytes calldata /* performData */) external {
+    function performUpkeep(bytes calldata /* performData */ ) external {
         //check to see if enough time has passed
-        (bool upkeepNeeded, ) = checkUpkeep("");
+        (bool upkeepNeeded,) = checkUpkeep("");
         //whenever we use some type of variable inside a fn, it can nver be calldata
         //Because technically anything generated from a smart contract is never calldata
         //calldata can only be generated from a user's txn input
         if (!upkeepNeeded) {
-            revert Raffle__UpkeepNotNeeded(
-                address(this).balance,
-                s_players.length,
-                uint256(s_raffleState)
-            );
+            revert Raffle__UpkeepNotNeeded(address(this).balance, s_players.length, uint256(s_raffleState));
         }
 
         s_raffleState = RaffleState.CALCULATING;
         //get our random number
         //1.request RNG(Random Number Generator)
         //2.get RNG
-        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient
-            .RandomWordsRequest({
-                keyHash: i_gasLane,
-                subId: i_subscriptionId,
-                requestConfirmations: REQUEST_CONFIRMATIONS,
-                callbackGasLimit: i_callbackGasLimit,
-                numWords: NUM_WORDS,
-                extraArgs: VRFV2PlusClient._argsToBytes(
-                    // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
-                    VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
-                )
-            });
+        VRFV2PlusClient.RandomWordsRequest memory request = VRFV2PlusClient.RandomWordsRequest({
+            keyHash: i_gasLane,
+            subId: i_subscriptionId,
+            requestConfirmations: REQUEST_CONFIRMATIONS,
+            callbackGasLimit: i_callbackGasLimit,
+            numWords: NUM_WORDS,
+            extraArgs: VRFV2PlusClient._argsToBytes(
+                // Set nativePayment to true to pay for VRF requests with Sepolia ETH instead of LINK
+                VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
+            )
+        });
         uint256 requestId = s_vrfCoordinator.requestRandomWords(request);
         //we get a requestId back from requestRandomWords
         //once we send the above requuest, the chanlink node will wait for some block confirmations and it will generate the random number and then its going to callback to fulfillRandomWords.
@@ -154,10 +147,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
     //CEI: Checks,Effects, Interactions pattern
 
     //This will be called by the `vrfCoordinator` when it sends back the requested `randomWords`. This is also where we'll select our winner!
-    function fulfillRandomWords(
-        uint256 /*requestId*/,
-        uint256[] calldata randomWords
-    ) internal override {
+    function fulfillRandomWords(uint256, /*requestId*/ uint256[] calldata randomWords) internal override {
         //Checks
 
         //s_players =10
@@ -165,7 +155,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         //12%10 = 2 whoever is at index 2 will be the random winner
 
         //Effects(Internal contract state changes)
-        uint indexOfWinner = randomWords[0] % s_players.length;
+        uint256 indexOfWinner = randomWords[0] % s_players.length;
         address payable recentWinner = s_players[indexOfWinner];
         s_recentWinner = recentWinner;
 
@@ -175,7 +165,7 @@ contract Raffle is VRFConsumerBaseV2Plus {
         s_lastTimeStamp = block.timestamp;
 
         //Interactions(External contract interactions)
-        (bool success, ) = recentWinner.call{value: address(this).balance}("");
+        (bool success,) = recentWinner.call{value: address(this).balance}("");
         if (!success) {
             revert Raffle__TransferFailed();
         }
